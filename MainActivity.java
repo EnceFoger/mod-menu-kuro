@@ -2,7 +2,6 @@ package com.kuro.companionctl;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.CompoundButton;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -23,35 +22,44 @@ import java.util.concurrent.Executors;
 /**
  * Toggles for the Kuro Companion module. Writes kuro_companion.cfg through root (su);
  * the module re-reads that file about every 2 seconds, so changes apply without restarting the game.
+ * Slider upper limits come from max_* lines in that file (default 5.0, valid 1.0 .. 100.0).
  */
 public class MainActivity extends Activity {
     private static final String PKG = "com.klab.bleach";
     private static final String CFG_EXT = "/storage/emulated/0/Android/data/" + PKG + "/files/kuro_companion.cfg";
     private static final String CFG_INT = "/data/user/0/" + PKG + "/files/kuro_companion.cfg";
 
+    private static final float DEFAULT_MAX = 5.0f;
+    private static final float LIMIT_MIN = 1.0f;     // a configured maximum must be at least this
+    private static final float LIMIT_MAX = 100.0f;   // ...and at most this (Unity caps timeScale at 100)
+
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private boolean loading = true;
 
     private TextView status;
-    private Feature attackSpeed, moveSpeed, attackRange, skillNoCd;
+    private Feature attackSpeed, moveSpeed, attackRange, unitySpeed, skillNoCd, godMode;
     private Switch modeAdd;
 
     private class Feature {
         final Switch sw;
-        final SeekBar bar;       // null for features without a multiplier
+        final SeekBar bar;         // null for plain on/off features
         final TextView valueText;
+        final float min;
+        float max;
 
-        Feature(LinearLayout parent, String title, boolean multiplier) {
+        Feature(LinearLayout parent, String title, boolean slider, float min, float max, float defaultValue) {
+            this.min = min;
+            this.max = max;
             sw = new Switch(MainActivity.this);
             sw.setText(title);
             sw.setTextSize(18);
             sw.setPadding(0, dp(14), 0, dp(4));
             parent.addView(sw);
-            if (multiplier) {
+            if (slider) {
                 valueText = new TextView(MainActivity.this);
                 bar = new SeekBar(MainActivity.this);
-                bar.setMax(40);          // 1.0x .. 5.0x in 0.1 steps
-                bar.setProgress(5);      // default 1.5x
+                bar.setMax(steps());
+                bar.setProgress(Math.max(0, Math.min(steps(), Math.round((defaultValue - min) * 10.0f))));
                 parent.addView(valueText);
                 parent.addView(bar);
                 refreshText();
@@ -69,20 +77,31 @@ public class MainActivity extends Activity {
             });
         }
 
-        float value() { return 1.0f + bar.getProgress() / 10.0f; }
+        int steps() { return Math.max(1, Math.round((max - min) * 10.0f)); }
 
-        void refreshText() {
-            if (valueText != null) valueText.setText(String.format(Locale.US, "Nilai: %.1fx", value()));
+        float value() { return Math.round((min + bar.getProgress() / 10.0f) * 10.0f) / 10.0f; }
+
+        void setMaxValue(float newMax) {
+            max = newMax;
+            if (bar == null) return;
+            bar.setMax(steps());
+            if (bar.getProgress() > steps()) bar.setProgress(steps());
+            refreshText();
         }
 
+        void refreshText() {
+            if (valueText != null)
+                valueText.setText(String.format(Locale.US, "Nilai: %.1fx  (%.1fx - %.1fx)", value(), min, max));
+        }
+
+        /** v is the value stored in the file; 1.0 (or anything below min) means "off". */
         void setFromFile(float v) {
             if (bar == null) return;
-            if (v > 1.0f) {
-                sw.setChecked(true);
-                int p = Math.round((v - 1.0f) * 10.0f);
-                bar.setProgress(Math.max(0, Math.min(40, p)));
-            } else {
-                sw.setChecked(false);
+            boolean on = Math.abs(v - 1.0f) > 0.001f && v >= min;
+            sw.setChecked(on);
+            if (on) {
+                float c = Math.max(min, Math.min(max, v));
+                bar.setProgress(Math.round((c - min) * 10.0f));
             }
             refreshText();
         }
@@ -108,10 +127,12 @@ public class MainActivity extends Activity {
         status.setPadding(0, dp(8), 0, dp(8));
         col.addView(status);
 
-        attackSpeed = new Feature(col, "Attack Speed", true);
-        moveSpeed   = new Feature(col, "Move Speed", true);
-        attackRange = new Feature(col, "Attack Range", true);
-        skillNoCd   = new Feature(col, "Skill No Cooldown (eksperimental)", false);
+        attackSpeed = new Feature(col, "Attack Speed", true, 1.0f, DEFAULT_MAX, 1.5f);
+        moveSpeed   = new Feature(col, "Move Speed", true, 1.0f, DEFAULT_MAX, 1.5f);
+        attackRange = new Feature(col, "Attack Range", true, 1.0f, DEFAULT_MAX, 1.5f);
+        unitySpeed  = new Feature(col, "Unity Speed", true, 0.1f, DEFAULT_MAX, 2.0f);
+        skillNoCd   = new Feature(col, "Skill No Cooldown (eksperimental)", false, 1.0f, DEFAULT_MAX, 1.0f);
+        godMode     = new Feature(col, "God Mode (karakter pemain)", false, 1.0f, DEFAULT_MAX, 1.0f);
 
         modeAdd = new Switch(this);
         modeAdd.setText("Mode kecepatan: Add (mati = Multiply)");
@@ -124,12 +145,20 @@ public class MainActivity extends Activity {
 
         TextView note = new TextView(this);
         note.setText("Perubahan terbaca game dalam sekitar 2 detik. Jika stage di file belum 3, "
-                + "tutup dan buka game sekali. Hindari mode online (risiko banned).");
+                + "tutup dan buka game sekali. Batas slider diubah lewat baris max_* di kuro_companion.cfg "
+                + "(contoh max_unity_speed=20.0, lalu buka ulang aplikasi ini). "
+                + "Jangan menyalakan God Mode atau Unity Speed di sini sekaligus di menu Kuro. "
+                + "Hindari mode online (risiko banned).");
         note.setPadding(0, dp(20), 0, 0);
         col.addView(note);
 
         setContentView(scroll);
-        loadAsync();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        loadAsync();   // also picks up edits made to max_* in the file while the app was in the background
     }
 
     private int dp(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }
@@ -166,6 +195,7 @@ public class MainActivity extends Activity {
     // ---------- load / save ----------
 
     private void loadAsync() {
+        loading = true;
         io.execute(new Runnable() {
             @Override public void run() {
                 final Result id = su("id", null);
@@ -186,6 +216,28 @@ public class MainActivity extends Activity {
         });
     }
 
+    /** A configured maximum must be a finite number in 1.0 .. 100.0; anything else falls back to 5.0. */
+    static float parseMax(String s) {
+        try {
+            float f = Float.parseFloat(s.trim());
+            if (!Float.isNaN(f) && !Float.isInfinite(f) && f >= LIMIT_MIN && f <= LIMIT_MAX) return f;
+        } catch (Exception e) {
+            // fall through to the default
+        }
+        return DEFAULT_MAX;
+    }
+
+    private static float num(String s) {
+        try {
+            float f = Float.parseFloat(s.trim());
+            return (Float.isNaN(f) || Float.isInfinite(f)) ? 1.0f : f;
+        } catch (Exception e) {
+            return 1.0f;
+        }
+    }
+
+    private static boolean flag(String s) { return "1".equals(s) || "true".equals(s) || "on".equals(s); }
+
     private void applyFile(String text) {
         Map<String, String> m = new HashMap<String, String>();
         for (String line : text.split("\n")) {
@@ -195,17 +247,20 @@ public class MainActivity extends Activity {
             if (eq < 0) continue;
             m.put(line.substring(0, eq).trim(), line.substring(eq + 1).trim());
         }
+        // Limits first, so the sliders have the right range before values are applied.
+        attackSpeed.setMaxValue(m.containsKey("max_attack_speed") ? parseMax(m.get("max_attack_speed")) : DEFAULT_MAX);
+        moveSpeed.setMaxValue(m.containsKey("max_move_speed") ? parseMax(m.get("max_move_speed")) : DEFAULT_MAX);
+        attackRange.setMaxValue(m.containsKey("max_attack_range") ? parseMax(m.get("max_attack_range")) : DEFAULT_MAX);
+        unitySpeed.setMaxValue(m.containsKey("max_unity_speed") ? parseMax(m.get("max_unity_speed")) : DEFAULT_MAX);
+
         attackSpeed.setFromFile(num(m.get("attack_speed")));
         moveSpeed.setFromFile(num(m.get("move_speed")));
         attackRange.setFromFile(num(m.get("attack_range")));
-        String cd = m.get("skill_no_cd");
-        skillNoCd.sw.setChecked("1".equals(cd) || "true".equals(cd) || "on".equals(cd));
+        unitySpeed.setFromFile(num(m.get("unity_speed")));
+        skillNoCd.sw.setChecked(flag(m.get("skill_no_cd")));
+        godMode.sw.setChecked(flag(m.get("god_mode")));
         String mode = m.get("attack_speed_mode");
         if (mode != null) modeAdd.setChecked(!"mul".equals(mode));
-    }
-
-    private static float num(String s) {
-        try { return s == null ? 1.0f : Float.parseFloat(s); } catch (NumberFormatException e) { return 1.0f; }
     }
 
     private String buildConfig() {
@@ -217,7 +272,13 @@ public class MainActivity extends Activity {
         sb.append(String.format(Locale.US, "move_speed=%.1f\n", moveSpeed.sw.isChecked() ? moveSpeed.value() : 1.0f));
         sb.append("move_speed_mode=").append(mode).append('\n');
         sb.append(String.format(Locale.US, "attack_range=%.1f\n", attackRange.sw.isChecked() ? attackRange.value() : 1.0f));
+        sb.append(String.format(Locale.US, "unity_speed=%.1f\n", unitySpeed.sw.isChecked() ? unitySpeed.value() : 1.0f));
         sb.append("skill_no_cd=").append(skillNoCd.sw.isChecked() ? "1" : "0").append('\n');
+        sb.append("god_mode=").append(godMode.sw.isChecked() ? "1" : "0").append('\n');
+        sb.append(String.format(Locale.US, "max_attack_speed=%.1f\n", attackSpeed.max));
+        sb.append(String.format(Locale.US, "max_move_speed=%.1f\n", moveSpeed.max));
+        sb.append(String.format(Locale.US, "max_attack_range=%.1f\n", attackRange.max));
+        sb.append(String.format(Locale.US, "max_unity_speed=%.1f\n", unitySpeed.max));
         return sb.toString();
     }
 
