@@ -1,7 +1,10 @@
 package com.kuro.companionctl;
 
 import android.app.Activity;
+import android.graphics.Typeface;
 import android.os.Bundle;
+import android.view.Gravity;
+import android.view.View;
 import android.widget.CompoundButton;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -37,6 +40,7 @@ public class MainActivity extends Activity {
     private boolean loading = true;
 
     private TextView status;
+    private TextView modeValue;
     private Feature attackSpeed, moveSpeed, attackRange, unitySpeed, damageRate, skillNoCd, godMode, autoNext;
     private Switch modeAdd;
 
@@ -50,31 +54,49 @@ public class MainActivity extends Activity {
         Feature(LinearLayout parent, String title, boolean slider, float min, float max, float defaultValue) {
             this.min = min;
             this.max = max;
-            sw = new Switch(MainActivity.this);
-            sw.setText(title);
-            sw.setTextSize(18);
-            sw.setPadding(0, dp(14), 0, dp(4));
-            parent.addView(sw);
+            sw = newSwitch();
+            TextView value = null;
+            SeekBar seek = null;
             if (slider) {
-                valueText = new TextView(MainActivity.this);
-                bar = new SeekBar(MainActivity.this);
+                value = label(14, R.color.sub);
+                seek = newSeekBar();
+            }
+            valueText = value;
+            bar = seek;
+
+            parent.addView(newRow(title, valueText, sw));
+            if (slider) {
                 bar.setMax(steps());
                 bar.setProgress(Math.max(0, Math.min(steps(), Math.round((defaultValue - min) * 10.0f))));
-                parent.addView(valueText);
-                parent.addView(bar);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, dp(32));
+                lp.leftMargin = -dp(8);
+                lp.rightMargin = -dp(8);
+                lp.bottomMargin = dp(10);
+                parent.addView(bar, lp);
                 refreshText();
                 bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                     @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) { refreshText(); }
                     @Override public void onStartTrackingTouch(SeekBar s) { }
                     @Override public void onStopTrackingTouch(SeekBar s) { save(); }
                 });
-            } else {
-                bar = null;
-                valueText = null;
             }
             sw.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-                @Override public void onCheckedChanged(CompoundButton b, boolean checked) { save(); }
+                @Override public void onCheckedChanged(CompoundButton b, boolean checked) {
+                    syncLook();
+                    save();
+                }
             });
+            syncLook();
+            parent.addView(divider());
+        }
+
+        /** Slider and value are dimmed while the feature is off. */
+        void syncLook() {
+            if (bar == null) return;
+            float a = sw.isChecked() ? 1.0f : 0.4f;
+            bar.setAlpha(a);
+            valueText.setAlpha(a);
         }
 
         int steps() { return Math.max(1, Math.round((max - min) * 10.0f)); }
@@ -91,7 +113,7 @@ public class MainActivity extends Activity {
 
         void refreshText() {
             if (valueText != null)
-                valueText.setText(String.format(Locale.US, "Nilai: %.1fx  (%.1fx - %.1fx)", value(), min, max));
+                valueText.setText(String.format(Locale.US, "%.1fx", value()));
         }
 
         /** v is the value stored in the file; 1.0 (or anything below min) means "off". */
@@ -107,29 +129,86 @@ public class MainActivity extends Activity {
         }
     }
 
+    // ---------- UI helpers ----------
+
+    private TextView label(int sp, int colorRes) {
+        TextView t = new TextView(this);
+        t.setTextSize(sp);
+        t.setTextColor(getColor(colorRes));
+        return t;
+    }
+
+    private Switch newSwitch() {
+        Switch s = new Switch(this);
+        s.setThumbDrawable(getDrawable(R.drawable.switch_thumb));
+        s.setTrackDrawable(getDrawable(R.drawable.switch_track));
+        return s;
+    }
+
+    private SeekBar newSeekBar() {
+        SeekBar b = new SeekBar(this);
+        b.setProgressDrawable(getDrawable(R.drawable.seek_progress));
+        b.setThumb(getDrawable(R.drawable.seek_thumb));
+        b.setThumbOffset(dp(8));
+        b.setSplitTrack(false);
+        b.setPadding(dp(8), 0, dp(8), 0);
+        return b;
+    }
+
+    /** Flat settings row: name on the left, optional value, switch on the right. Tapping the row toggles. */
+    private LinearLayout newRow(String title, TextView value, final Switch sw) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(dp(56));
+        TextView name = label(16, R.color.fg);
+        name.setText(title);
+        row.addView(name, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+        if (value != null) {
+            value.setPadding(dp(12), 0, dp(16), 0);
+            row.addView(value);
+        } else {
+            name.setPadding(0, 0, dp(12), 0);
+        }
+        row.addView(sw);
+        row.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { sw.toggle(); }
+        });
+        return row;
+    }
+
+    private View divider() {
+        View v = new View(this);
+        v.setBackgroundColor(getColor(R.color.line));
+        v.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, Math.max(1, dp(1) / 2)));
+        return v;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        getWindow().getDecorView().setBackgroundColor(0xFF101010);
         ScrollView scroll = new ScrollView(this);
+        scroll.setBackgroundColor(getColor(R.color.bg));
+        scroll.setFillViewport(true);
+        scroll.setVerticalScrollBarEnabled(false);
+        scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
-        col.setPadding(dp(20), dp(28), dp(20), dp(24));
+        col.setPadding(dp(20), dp(24), dp(20), dp(24));
         scroll.addView(col);
 
-        TextView title = new TextView(this);
-        title.setText("Kuro Control");
-        title.setTextSize(22);
-        title.setTextColor(0xFFF2F2F2);
+        TextView title = label(22, R.color.fg);
+        title.setText("Kuro Companion");
+        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         col.addView(title);
 
-        status = new TextView(this);
+        status = label(13, R.color.sub);
         status.setText("Memeriksa root...");
-        status.setTextSize(13);
-        status.setTextColor(0xFF9E9E9E);
-        status.setPadding(0, dp(8), 0, dp(8));
+        status.setPadding(0, dp(4), 0, dp(16));
         col.addView(status);
+        col.addView(divider());
 
         attackSpeed = new Feature(col, "Attack Speed", true, 1.0f, DEFAULT_MAX, 1.5f);
         moveSpeed   = new Feature(col, "Move Speed", true, 1.0f, DEFAULT_MAX, 1.5f);
@@ -140,14 +219,26 @@ public class MainActivity extends Activity {
         godMode     = new Feature(col, "God Mode", false, 1.0f, DEFAULT_MAX, 1.0f);
         autoNext    = new Feature(col, "Auto Next Quest", false, 1.0f, DEFAULT_MAX, 1.0f);
 
-        modeAdd = new Switch(this);
-        modeAdd.setText("Speed mode: Add");
+        modeAdd = newSwitch();
+        modeValue = label(14, R.color.sub);
+        modeValue.setText("Add");
         modeAdd.setChecked(true);
-        modeAdd.setPadding(0, dp(20), 0, dp(4));
         modeAdd.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override public void onCheckedChanged(CompoundButton b, boolean checked) { save(); }
+            @Override public void onCheckedChanged(CompoundButton b, boolean checked) {
+                modeValue.setText(checked ? "Add" : "Multiply");
+                save();
+            }
         });
-        col.addView(modeAdd);
+        col.addView(newRow("Mode kecepatan", modeValue, modeAdd));
+        col.addView(divider());
+
+        TextView note = label(12, R.color.sub);
+        note.setText("Perubahan diterapkan dalam sekitar 2 detik.\n"
+                + "Jangan aktifkan fitur yang sama di sini dan di menu Kuro.\n"
+                + "Hindari mode online (risiko banned).");
+        note.setLineSpacing(0, 1.2f);
+        note.setPadding(0, dp(16), 0, 0);
+        col.addView(note);
 
         setContentView(scroll);
     }
@@ -201,9 +292,9 @@ public class MainActivity extends Activity {
                 runOnUiThread(new Runnable() {
                     @Override public void run() {
                         if (!root) {
-                            status.setText("Root ditolak atau tidak tersedia. Beri izin root untuk aplikasi ini di Magisk.");
+                            status.setText("Root tidak tersedia. Beri izin root di Magisk.");
                         } else {
-                            status.setText("Root OK. Mengubah: " + CFG_EXT);
+                            status.setText("Root aktif");
                             applyFile(cfg.out);
                         }
                         loading = false;
@@ -298,8 +389,8 @@ public class MainActivity extends Activity {
                 su("[ -f '" + CFG_INT + "' ] && cat > '" + CFG_INT + "'", content);
                 runOnUiThread(new Runnable() {
                     @Override public void run() {
-                        status.setText(w.code == 0 ? "Tersimpan. Game membacanya dalam ~2 detik."
-                                                   : "Gagal menulis file (kode " + w.code + ").");
+                        status.setText(w.code == 0 ? "Tersimpan"
+                                                   : "Gagal menyimpan (kode " + w.code + ")");
                     }
                 });
             }
