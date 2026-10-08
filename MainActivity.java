@@ -37,7 +37,7 @@ public class MainActivity extends Activity {
     private boolean loading = true;
 
     private TextView status;
-    private Feature attackSpeed, moveSpeed, attackRange, unitySpeed, damageRate, skillNoCd, godMode, autoNext;
+    private Feature attackSpeed, moveSpeed, attackRange, unitySpeed, damageRate, skillNoCd, godMode, skipStory;
     private Switch modeAdd;
 
     private class Feature {
@@ -134,7 +134,7 @@ public class MainActivity extends Activity {
         damageRate  = new Feature(col, "Damage Rate Up", true, 1.0f, DEFAULT_MAX, 1.5f);
         skillNoCd   = new Feature(col, "Skill No Cooldown (eksperimental)", false, 1.0f, DEFAULT_MAX, 1.0f);
         godMode     = new Feature(col, "God Mode (karakter pemain)", false, 1.0f, DEFAULT_MAX, 1.0f);
-        autoNext    = new Feature(col, "Auto Next Quest (single-player)", false, 1.0f, DEFAULT_MAX, 1.0f);
+        skipStory    = new Feature(col, "Skip Story (dialog)", false, 1.0f, DEFAULT_MAX, 1.0f);
 
         modeAdd = new Switch(this);
         modeAdd.setText("Mode kecepatan: Add (mati = Multiply)");
@@ -263,7 +263,7 @@ public class MainActivity extends Activity {
         damageRate.setFromFile(num(m.get("damage_rate")));
         skillNoCd.sw.setChecked(flag(m.get("skill_no_cd")));
         godMode.sw.setChecked(flag(m.get("god_mode")));
-        autoNext.sw.setChecked(flag(m.get("auto_next_quest")));
+        skipStory.sw.setChecked(flag(m.get("skip_story")));
         String mode = m.get("attack_speed_mode");
         if (mode != null) modeAdd.setChecked(!"mul".equals(mode));
     }
@@ -282,7 +282,7 @@ public class MainActivity extends Activity {
         sb.append("damage_rate_mode=add\n");
         sb.append("skill_no_cd=").append(skillNoCd.sw.isChecked() ? "1" : "0").append('\n');
         sb.append("god_mode=").append(godMode.sw.isChecked() ? "1" : "0").append('\n');
-        sb.append("auto_next_quest=").append(autoNext.sw.isChecked() ? "1" : "0").append('\n');
+        sb.append("skip_story=").append(skipStory.sw.isChecked() ? "1" : "0").append('\n');
         sb.append(String.format(Locale.US, "max_attack_speed=%.1f\n", attackSpeed.max));
         sb.append(String.format(Locale.US, "max_move_speed=%.1f\n", moveSpeed.max));
         sb.append(String.format(Locale.US, "max_attack_range=%.1f\n", attackRange.max));
