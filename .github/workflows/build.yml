@@ -19,14 +19,32 @@ jobs:
           cp app_build.gradle app/build.gradle
           cp AndroidManifest.xml app/src/main/AndroidManifest.xml
           cp MainActivity.java app/src/main/java/com/kuro/companionctl/MainActivity.java
+      - name: Resources and launcher icon from logo.jpg
+        run: |
+          pip install pillow --quiet
+          python3 setup_res.py logo.jpg app/src/main/res
       - name: Android SDK
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0"
+      - name: Keystore cache
+        uses: actions/cache@v4
+        with:
+          path: kuro-release.jks
+          key: kuro-keystore-v1
+      - name: Keystore
+        run: |
+          if [ ! -f kuro-release.jks ]; then
+            keytool -genkeypair -keystore kuro-release.jks -alias kuro -keyalg RSA -keysize 2048 -validity 10000 -storepass kurocontrol -keypass kurocontrol -dname "CN=Kuro Control"
+          fi
       - name: Build
-        run: gradle assembleDebug --no-daemon
+        run: gradle assembleRelease --no-daemon
+        env:
+          KS_FILE: ${{ github.workspace }}/kuro-release.jks
+          KS_PASS: kurocontrol
+          KS_ALIAS: kuro
       - uses: actions/upload-artifact@v4
         with:
           name: kuro_control_apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
