@@ -37,7 +37,7 @@ public class MainActivity extends Activity {
     private boolean loading = true;
 
     private TextView status;
-    private Feature attackSpeed, moveSpeed, attackRange, unitySpeed, skillNoCd, godMode;
+    private Feature attackSpeed, moveSpeed, attackRange, unitySpeed, damageRate, skillNoCd, godMode, autoNext;
     private Switch modeAdd;
 
     private class Feature {
@@ -131,8 +131,10 @@ public class MainActivity extends Activity {
         moveSpeed   = new Feature(col, "Move Speed", true, 1.0f, DEFAULT_MAX, 1.5f);
         attackRange = new Feature(col, "Attack Range", true, 1.0f, DEFAULT_MAX, 1.5f);
         unitySpeed  = new Feature(col, "Unity Speed", true, 0.1f, DEFAULT_MAX, 2.0f);
+        damageRate  = new Feature(col, "Damage Rate Up", true, 1.0f, DEFAULT_MAX, 1.5f);
         skillNoCd   = new Feature(col, "Skill No Cooldown (eksperimental)", false, 1.0f, DEFAULT_MAX, 1.0f);
         godMode     = new Feature(col, "God Mode (karakter pemain)", false, 1.0f, DEFAULT_MAX, 1.0f);
+        autoNext    = new Feature(col, "Auto Next Quest (single-player)", false, 1.0f, DEFAULT_MAX, 1.0f);
 
         modeAdd = new Switch(this);
         modeAdd.setText("Mode kecepatan: Add (mati = Multiply)");
@@ -147,7 +149,7 @@ public class MainActivity extends Activity {
         note.setText("Perubahan terbaca game dalam sekitar 2 detik. Jika stage di file belum 3, "
                 + "tutup dan buka game sekali. Batas slider diubah lewat baris max_* di kuro_companion.cfg "
                 + "(contoh max_unity_speed=20.0, lalu buka ulang aplikasi ini). "
-                + "Jangan menyalakan God Mode atau Unity Speed di sini sekaligus di menu Kuro. "
+                + "Jangan menyalakan fitur yang sama (God Mode, Unity Speed, Damage Rate) di sini sekaligus di menu Kuro. "
                 + "Hindari mode online (risiko banned).");
         note.setPadding(0, dp(20), 0, 0);
         col.addView(note);
@@ -252,13 +254,16 @@ public class MainActivity extends Activity {
         moveSpeed.setMaxValue(m.containsKey("max_move_speed") ? parseMax(m.get("max_move_speed")) : DEFAULT_MAX);
         attackRange.setMaxValue(m.containsKey("max_attack_range") ? parseMax(m.get("max_attack_range")) : DEFAULT_MAX);
         unitySpeed.setMaxValue(m.containsKey("max_unity_speed") ? parseMax(m.get("max_unity_speed")) : DEFAULT_MAX);
+        damageRate.setMaxValue(m.containsKey("max_damage_rate") ? parseMax(m.get("max_damage_rate")) : DEFAULT_MAX);
 
         attackSpeed.setFromFile(num(m.get("attack_speed")));
         moveSpeed.setFromFile(num(m.get("move_speed")));
         attackRange.setFromFile(num(m.get("attack_range")));
         unitySpeed.setFromFile(num(m.get("unity_speed")));
+        damageRate.setFromFile(num(m.get("damage_rate")));
         skillNoCd.sw.setChecked(flag(m.get("skill_no_cd")));
         godMode.sw.setChecked(flag(m.get("god_mode")));
+        autoNext.sw.setChecked(flag(m.get("auto_next_quest")));
         String mode = m.get("attack_speed_mode");
         if (mode != null) modeAdd.setChecked(!"mul".equals(mode));
     }
@@ -273,12 +278,16 @@ public class MainActivity extends Activity {
         sb.append("move_speed_mode=").append(mode).append('\n');
         sb.append(String.format(Locale.US, "attack_range=%.1f\n", attackRange.sw.isChecked() ? attackRange.value() : 1.0f));
         sb.append(String.format(Locale.US, "unity_speed=%.1f\n", unitySpeed.sw.isChecked() ? unitySpeed.value() : 1.0f));
+        sb.append(String.format(Locale.US, "damage_rate=%.1f\n", damageRate.sw.isChecked() ? damageRate.value() : 1.0f));
+        sb.append("damage_rate_mode=add\n");
         sb.append("skill_no_cd=").append(skillNoCd.sw.isChecked() ? "1" : "0").append('\n');
         sb.append("god_mode=").append(godMode.sw.isChecked() ? "1" : "0").append('\n');
+        sb.append("auto_next_quest=").append(autoNext.sw.isChecked() ? "1" : "0").append('\n');
         sb.append(String.format(Locale.US, "max_attack_speed=%.1f\n", attackSpeed.max));
         sb.append(String.format(Locale.US, "max_move_speed=%.1f\n", moveSpeed.max));
         sb.append(String.format(Locale.US, "max_attack_range=%.1f\n", attackRange.max));
         sb.append(String.format(Locale.US, "max_unity_speed=%.1f\n", unitySpeed.max));
+        sb.append(String.format(Locale.US, "max_damage_rate=%.1f\n", damageRate.max));
         return sb.toString();
     }
 
