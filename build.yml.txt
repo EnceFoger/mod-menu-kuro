@@ -19,6 +19,19 @@ jobs:
           cp app_build.gradle app/build.gradle
           cp AndroidManifest.xml app/src/main/AndroidManifest.xml
           cp MainActivity.java app/src/main/java/com/kuro/companionctl/MainActivity.java
+      - name: Add app logo
+        run: |
+          mkdir -p app/src/main/res/mipmap-mdpi app/src/main/res/mipmap-hdpi app/src/main/res/mipmap-xhdpi app/src/main/res/mipmap-xxhdpi app/src/main/res/mipmap-xxxhdpi
+          curl -L --fail "https://rtkscyjnbiwvljokcxuz.supabase.co/storage/v1/object/public/vault_files/1791493906976_y8wgm8k2xla_59a5c02a2f5453ecafdb47ff91526f9c.jpg" -o /tmp/kuro-logo.jpg
+          python3 - <<'PYCODE'
+          from PIL import Image
+          im = Image.open("/tmp/kuro-logo.jpg").convert("RGBA")
+          sizes = {"mdpi":48,"hdpi":72,"xhdpi":96,"xxhdpi":144,"xxxhdpi":192}
+          for density, size in sizes.items():
+              icon = im.resize((size,size), Image.Resampling.LANCZOS)
+              icon.save(f"app/src/main/res/mipmap-{density}/ic_launcher.png")
+              icon.save(f"app/src/main/res/mipmap-{density}/ic_launcher_round.png")
+          PYCODE
       - name: Android SDK
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true

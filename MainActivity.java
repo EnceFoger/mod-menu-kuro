@@ -4,13 +4,6 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.widget.CompoundButton;
 import android.widget.LinearLayout;
-import android.widget.ImageView;
-import android.graphics.BitmapFactory;
-import android.graphics.Color;
-import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
-import android.view.Gravity;
-import java.net.URL;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.Switch;
@@ -32,7 +25,6 @@ import java.util.concurrent.Executors;
  * Slider upper limits come from max_* lines in that file (default 5.0, valid 1.0 .. 100.0).
  */
 public class MainActivity extends Activity {
-    private static final String LOGO_URL = "https://rtkscyjnbiwvljokcxuz.supabase.co/storage/v1/object/public/vault_files/1791493906976_y8wgm8k2xla_59a5c02a2f5453ecafdb47ff91526f9c.jpg";
     private static final String PKG = "com.klab.bleach";
     private static final String CFG_EXT = "/storage/emulated/0/Android/data/" + PKG + "/files/kuro_companion.cfg";
     private static final String CFG_INT = "/data/user/0/" + PKG + "/files/kuro_companion.cfg";
@@ -56,29 +48,30 @@ public class MainActivity extends Activity {
         float max;
 
         Feature(LinearLayout parent, String title, boolean slider, float min, float max, float defaultValue) {
-            this.min = min; this.max = max;
-            LinearLayout card = new LinearLayout(MainActivity.this);
-            card.setOrientation(LinearLayout.VERTICAL);
-            card.setPadding(dp(16), dp(8), dp(16), dp(14));
-            card.setBackground(panel());
-            LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(-1, -2);
-            cp.bottomMargin = dp(12); parent.addView(card, cp);
+            this.min = min;
+            this.max = max;
             sw = new Switch(MainActivity.this);
-            sw.setText(title); sw.setTextSize(15);
-            sw.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-            sw.setPadding(0, dp(8), 0, dp(8)); card.addView(sw);
+            sw.setText(title);
+            sw.setTextSize(18);
+            sw.setPadding(0, dp(14), 0, dp(4));
+            parent.addView(sw);
             if (slider) {
                 valueText = new TextView(MainActivity.this);
-                valueText.setTextColor(Color.rgb(174,184,204)); valueText.setTextSize(12);
-                bar = new SeekBar(MainActivity.this); bar.setMax(steps());
-                bar.setProgress(Math.max(0, Math.min(steps(), Math.round((defaultValue-min)*10.0f))));
-                card.addView(valueText); card.addView(bar); refreshText();
+                bar = new SeekBar(MainActivity.this);
+                bar.setMax(steps());
+                bar.setProgress(Math.max(0, Math.min(steps(), Math.round((defaultValue - min) * 10.0f))));
+                parent.addView(valueText);
+                parent.addView(bar);
+                refreshText();
                 bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                     @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) { refreshText(); }
                     @Override public void onStartTrackingTouch(SeekBar s) { }
                     @Override public void onStopTrackingTouch(SeekBar s) { save(); }
                 });
-            } else { bar = null; valueText = null; }
+            } else {
+                bar = null;
+                valueText = null;
+            }
             sw.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
                 @Override public void onCheckedChanged(CompoundButton b, boolean checked) { save(); }
             });
@@ -117,87 +110,46 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getWindow().setStatusBarColor(Color.rgb(12,16,25));
-        getWindow().setNavigationBarColor(Color.rgb(12,16,25));
+
+        getWindow().getDecorView().setBackgroundColor(0xFF101010);
         ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true); scroll.setBackgroundColor(Color.rgb(12,16,25));
-        LinearLayout col = new LinearLayout(this); col.setOrientation(LinearLayout.VERTICAL);
-        col.setPadding(dp(18),dp(22),dp(18),dp(28)); scroll.addView(col);
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setPadding(dp(20), dp(28), dp(20), dp(24));
+        scroll.addView(col);
 
-        LinearLayout header = new LinearLayout(this);
-        header.setGravity(Gravity.CENTER_VERTICAL); header.setPadding(dp(16),dp(18),dp(16),dp(18));
-        header.setBackground(panel()); col.addView(header, new LinearLayout.LayoutParams(-1,-2));
-        ImageView logo = new ImageView(this); logo.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        logo.setBackground(panel()); logo.setClipToOutline(true);
-        LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(dp(64),dp(64));
-        ilp.rightMargin=dp(14); header.addView(logo,ilp);
-        io.execute(new Runnable() { @Override public void run() {
-            try {
-                java.net.HttpURLConnection c=(java.net.HttpURLConnection)new URL(LOGO_URL).openConnection();
-                c.setConnectTimeout(7000); c.setReadTimeout(7000);
-                final android.graphics.Bitmap bmp=BitmapFactory.decodeStream(c.getInputStream()); c.disconnect();
-                if (bmp!=null) runOnUiThread(new Runnable(){@Override public void run(){logo.setImageBitmap(bmp);}});
-            } catch(Exception ignored) { }
-        }});
-        LinearLayout heading = new LinearLayout(this); heading.setOrientation(LinearLayout.VERTICAL);
-        header.addView(heading,new LinearLayout.LayoutParams(0,-2,1));
-        TextView eyebrow=new TextView(this); eyebrow.setText("CONTROL PANEL");
-        eyebrow.setTextColor(Color.rgb(112,160,255)); eyebrow.setTextSize(10);
-        eyebrow.setTypeface(Typeface.DEFAULT,Typeface.BOLD); heading.addView(eyebrow);
-        TextView title=new TextView(this); title.setText("Kuro Companion"); title.setTextColor(Color.WHITE);
-        title.setTextSize(21); title.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
-        LinearLayout.LayoutParams titleP=new LinearLayout.LayoutParams(-1,-2); titleP.topMargin=dp(4);
-        heading.addView(title,titleP);
-        TextView subtitle=new TextView(this); subtitle.setText("Game configuration");
-        subtitle.setTextColor(Color.rgb(151,162,183)); subtitle.setTextSize(12); heading.addView(subtitle);
+        TextView title = new TextView(this);
+        title.setText("Kuro Control");
+        title.setTextSize(22);
+        title.setTextColor(0xFFF2F2F2);
+        col.addView(title);
 
-        status=new TextView(this); status.setText("Memeriksa root...");
-        status.setTextColor(Color.rgb(207,216,232)); status.setTextSize(12);
-        status.setPadding(dp(14),dp(14),dp(14),dp(14)); status.setBackground(panel());
-        LinearLayout.LayoutParams statusP=new LinearLayout.LayoutParams(-1,-2);
-        statusP.topMargin=dp(14); statusP.bottomMargin=dp(22); col.addView(status,statusP);
+        status = new TextView(this);
+        status.setText("Memeriksa root...");
+        status.setTextSize(13);
+        status.setTextColor(0xFF9E9E9E);
+        status.setPadding(0, dp(8), 0, dp(8));
+        col.addView(status);
 
-        addSection(col,"PLAYER SETTINGS","Movement and combat parameters");
-        attackSpeed=new Feature(col,"Attack Speed",true,1.0f,DEFAULT_MAX,1.5f);
-        moveSpeed=new Feature(col,"Move Speed",true,1.0f,DEFAULT_MAX,1.5f);
-        attackRange=new Feature(col,"Attack Range",true,1.0f,DEFAULT_MAX,1.5f);
-        unitySpeed=new Feature(col,"Unity Speed",true,0.1f,DEFAULT_MAX,2.0f);
-        damageRate=new Feature(col,"Damage Rate Up",true,1.0f,DEFAULT_MAX,1.5f);
-        addSection(col,"EXPERIMENTAL","Use carefully; behavior depends on module support");
-        skillNoCd=new Feature(col,"Skill No Cooldown",false,1.0f,DEFAULT_MAX,1.0f);
-        godMode=new Feature(col,"God Mode",false,1.0f,DEFAULT_MAX,1.0f);
-        autoNext=new Feature(col,"Auto Next Quest",false,1.0f,DEFAULT_MAX,1.0f);
+        attackSpeed = new Feature(col, "Attack Speed", true, 1.0f, DEFAULT_MAX, 1.5f);
+        moveSpeed   = new Feature(col, "Move Speed", true, 1.0f, DEFAULT_MAX, 1.5f);
+        attackRange = new Feature(col, "Attack Range", true, 1.0f, DEFAULT_MAX, 1.5f);
+        unitySpeed  = new Feature(col, "Unity Speed", true, 0.1f, DEFAULT_MAX, 2.0f);
+        damageRate  = new Feature(col, "Damage Rate Up", true, 1.0f, DEFAULT_MAX, 1.5f);
+        skillNoCd   = new Feature(col, "Skill No Cooldown", false, 1.0f, DEFAULT_MAX, 1.0f);
+        godMode     = new Feature(col, "God Mode", false, 1.0f, DEFAULT_MAX, 1.0f);
+        autoNext    = new Feature(col, "Auto Next Quest", false, 1.0f, DEFAULT_MAX, 1.0f);
 
-        LinearLayout modeCard=new LinearLayout(this); modeCard.setPadding(dp(16),dp(8),dp(16),dp(8));
-        modeCard.setBackground(panel()); modeAdd=new Switch(this);
-        modeAdd.setText("Speed mode: Add"); modeAdd.setTextColor(Color.WHITE); modeAdd.setTextSize(14);
-        modeAdd.setChecked(true); modeCard.addView(modeAdd);
-        LinearLayout.LayoutParams modeP=new LinearLayout.LayoutParams(-1,-2);
-        modeP.bottomMargin=dp(12); col.addView(modeCard,modeP);
+        modeAdd = new Switch(this);
+        modeAdd.setText("Speed mode: Add");
+        modeAdd.setChecked(true);
+        modeAdd.setPadding(0, dp(20), 0, dp(4));
         modeAdd.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override public void onCheckedChanged(CompoundButton b,boolean checked) {
-                modeAdd.setText(checked ? "Speed mode: Add" : "Speed mode: Multiply"); save();
-            }
+            @Override public void onCheckedChanged(CompoundButton b, boolean checked) { save(); }
         });
-        TextView note=new TextView(this);
-        note.setText("Changes are usually read by the game within about 2 seconds. Slider limits can be adjusted using max_* values in kuro_companion.cfg. Avoid experimental settings in online modes; modifications may violate game rules.");
-        note.setTextColor(Color.rgb(143,154,175)); note.setTextSize(12);
-        note.setPadding(dp(4),dp(12),dp(4),0); col.addView(note);
+        col.addView(modeAdd);
+
         setContentView(scroll);
-    }
-
-    private GradientDrawable panel() {
-        GradientDrawable d=new GradientDrawable(); d.setColor(Color.rgb(23,29,42));
-        d.setCornerRadius(dp(18)); d.setStroke(dp(1),Color.rgb(39,48,66)); return d;
-    }
-
-    private void addSection(LinearLayout parent,String title,String subtitle) {
-        TextView h=new TextView(this); h.setText(title); h.setTextColor(Color.WHITE);
-        h.setTextSize(13); h.setTypeface(Typeface.DEFAULT,Typeface.BOLD); parent.addView(h);
-        TextView sub=new TextView(this); sub.setText(subtitle);
-        sub.setTextColor(Color.rgb(130,143,166)); sub.setTextSize(11);
-        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);
-        p.topMargin=dp(4); p.bottomMargin=dp(12); parent.addView(sub,p);
     }
 
     @Override
