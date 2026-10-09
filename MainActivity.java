@@ -1,10 +1,11 @@
 package com.kuro.companionctl;
 
 import android.app.Activity;
-import android.graphics.Typeface;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
-import android.view.Gravity;
-import android.view.View;
+import android.provider.Settings;
 import android.widget.CompoundButton;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -40,8 +41,7 @@ public class MainActivity extends Activity {
     private boolean loading = true;
 
     private TextView status;
-    private TextView modeValue;
-    private Feature attackSpeed, moveSpeed, attackRange, unitySpeed, damageRate, skillNoCd, godMode, autoNext;
+    private Feature attackSpeed, moveSpeed, attackRange, unitySpeed, damageRate, skillNoCd, godMode, skipStory, eventPoints;
     private Switch modeAdd;
 
     private class Feature {
@@ -54,49 +54,31 @@ public class MainActivity extends Activity {
         Feature(LinearLayout parent, String title, boolean slider, float min, float max, float defaultValue) {
             this.min = min;
             this.max = max;
-            sw = newSwitch();
-            TextView value = null;
-            SeekBar seek = null;
+            sw = new Switch(MainActivity.this);
+            sw.setText(title);
+            sw.setTextSize(18);
+            sw.setPadding(0, dp(14), 0, dp(4));
+            parent.addView(sw);
             if (slider) {
-                value = label(14, R.color.sub);
-                seek = newSeekBar();
-            }
-            valueText = value;
-            bar = seek;
-
-            parent.addView(newRow(title, valueText, sw));
-            if (slider) {
+                valueText = new TextView(MainActivity.this);
+                bar = new SeekBar(MainActivity.this);
                 bar.setMax(steps());
                 bar.setProgress(Math.max(0, Math.min(steps(), Math.round((defaultValue - min) * 10.0f))));
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT, dp(32));
-                lp.leftMargin = -dp(8);
-                lp.rightMargin = -dp(8);
-                lp.bottomMargin = dp(10);
-                parent.addView(bar, lp);
+                parent.addView(valueText);
+                parent.addView(bar);
                 refreshText();
                 bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                     @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) { refreshText(); }
                     @Override public void onStartTrackingTouch(SeekBar s) { }
                     @Override public void onStopTrackingTouch(SeekBar s) { save(); }
                 });
+            } else {
+                bar = null;
+                valueText = null;
             }
             sw.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-                @Override public void onCheckedChanged(CompoundButton b, boolean checked) {
-                    syncLook();
-                    save();
-                }
+                @Override public void onCheckedChanged(CompoundButton b, boolean checked) { save(); }
             });
-            syncLook();
-            parent.addView(divider());
-        }
-
-        /** Slider and value are dimmed while the feature is off. */
-        void syncLook() {
-            if (bar == null) return;
-            float a = sw.isChecked() ? 1.0f : 0.4f;
-            bar.setAlpha(a);
-            valueText.setAlpha(a);
         }
 
         int steps() { return Math.max(1, Math.round((max - min) * 10.0f)); }
@@ -113,7 +95,7 @@ public class MainActivity extends Activity {
 
         void refreshText() {
             if (valueText != null)
-                valueText.setText(String.format(Locale.US, "%.1fx", value()));
+                valueText.setText(String.format(Locale.US, "Nilai: %.1fx  (%.1fx - %.1fx)", value(), min, max));
         }
 
         /** v is the value stored in the file; 1.0 (or anything below min) means "off". */
@@ -129,115 +111,66 @@ public class MainActivity extends Activity {
         }
     }
 
-    // ---------- UI helpers ----------
-
-    private TextView label(int sp, int colorRes) {
-        TextView t = new TextView(this);
-        t.setTextSize(sp);
-        t.setTextColor(getColor(colorRes));
-        return t;
-    }
-
-    private Switch newSwitch() {
-        Switch s = new Switch(this);
-        s.setThumbDrawable(getDrawable(R.drawable.switch_thumb));
-        s.setTrackDrawable(getDrawable(R.drawable.switch_track));
-        return s;
-    }
-
-    private SeekBar newSeekBar() {
-        SeekBar b = new SeekBar(this);
-        b.setProgressDrawable(getDrawable(R.drawable.seek_progress));
-        b.setThumb(getDrawable(R.drawable.seek_thumb));
-        b.setThumbOffset(dp(8));
-        b.setSplitTrack(false);
-        b.setPadding(dp(8), 0, dp(8), 0);
-        return b;
-    }
-
-    /** Flat settings row: name on the left, optional value, switch on the right. Tapping the row toggles. */
-    private LinearLayout newRow(String title, TextView value, final Switch sw) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setMinimumHeight(dp(56));
-        TextView name = label(16, R.color.fg);
-        name.setText(title);
-        row.addView(name, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
-        if (value != null) {
-            value.setPadding(dp(12), 0, dp(16), 0);
-            row.addView(value);
-        } else {
-            name.setPadding(0, 0, dp(12), 0);
-        }
-        row.addView(sw);
-        row.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { sw.toggle(); }
-        });
-        return row;
-    }
-
-    private View divider() {
-        View v = new View(this);
-        v.setBackgroundColor(getColor(R.color.line));
-        v.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, Math.max(1, dp(1) / 2)));
-        return v;
-    }
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         ScrollView scroll = new ScrollView(this);
-        scroll.setBackgroundColor(getColor(R.color.bg));
-        scroll.setFillViewport(true);
-        scroll.setVerticalScrollBarEnabled(false);
-        scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
-        col.setPadding(dp(20), dp(24), dp(20), dp(24));
+        col.setPadding(dp(20), dp(40), dp(20), dp(24));
         scroll.addView(col);
 
-        TextView title = label(22, R.color.fg);
+        TextView title = new TextView(this);
         title.setText("Kuro Companion");
-        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        title.setTextSize(24);
         col.addView(title);
 
-        status = label(13, R.color.sub);
+        status = new TextView(this);
         status.setText("Memeriksa root...");
-        status.setPadding(0, dp(4), 0, dp(16));
+        status.setPadding(0, dp(8), 0, dp(8));
         col.addView(status);
-        col.addView(divider());
 
         attackSpeed = new Feature(col, "Attack Speed", true, 1.0f, DEFAULT_MAX, 1.5f);
         moveSpeed   = new Feature(col, "Move Speed", true, 1.0f, DEFAULT_MAX, 1.5f);
         attackRange = new Feature(col, "Attack Range", true, 1.0f, DEFAULT_MAX, 1.5f);
         unitySpeed  = new Feature(col, "Unity Speed", true, 0.1f, DEFAULT_MAX, 2.0f);
         damageRate  = new Feature(col, "Damage Rate Up", true, 1.0f, DEFAULT_MAX, 1.5f);
-        skillNoCd   = new Feature(col, "Skill No Cooldown", false, 1.0f, DEFAULT_MAX, 1.0f);
-        godMode     = new Feature(col, "God Mode", false, 1.0f, DEFAULT_MAX, 1.0f);
-        autoNext    = new Feature(col, "Auto Next Quest", false, 1.0f, DEFAULT_MAX, 1.0f);
-
-        modeAdd = newSwitch();
-        modeValue = label(14, R.color.sub);
-        modeValue.setText("Add");
-        modeAdd.setChecked(true);
-        modeAdd.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+        skillNoCd   = new Feature(col, "Skill No Cooldown (eksperimental)", false, 1.0f, DEFAULT_MAX, 1.0f);
+        godMode     = new Feature(col, "God Mode (karakter pemain)", false, 1.0f, DEFAULT_MAX, 1.0f);
+        skipStory    = new Feature(col, "Skip Story (dialog)", false, 1.0f, DEFAULT_MAX, 1.0f);
+        eventPoints  = new Feature(col, "Overlay Poin Event", false, 1.0f, DEFAULT_MAX, 1.0f);
+        eventPoints.sw.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override public void onCheckedChanged(CompoundButton b, boolean checked) {
-                modeValue.setText(checked ? "Add" : "Multiply");
+                if (loading) return;
+                if (checked && !Settings.canDrawOverlays(MainActivity.this)) {
+                    loading = true; b.setChecked(false); loading = false;
+                    startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName())));
+                    status.setText("Izinkan 'Tampil di atas aplikasi lain' untuk aplikasi ini, lalu nyalakan lagi.");
+                    return;
+                }
                 save();
+                setOverlayRunning(checked);
             }
         });
-        col.addView(newRow("Mode kecepatan", modeValue, modeAdd));
-        col.addView(divider());
 
-        TextView note = label(12, R.color.sub);
-        note.setText("Perubahan diterapkan dalam sekitar 2 detik.\n"
-                + "Jangan aktifkan fitur yang sama di sini dan di menu Kuro.\n"
+        modeAdd = new Switch(this);
+        modeAdd.setText("Mode kecepatan: Add (mati = Multiply)");
+        modeAdd.setChecked(true);
+        modeAdd.setPadding(0, dp(20), 0, dp(4));
+        modeAdd.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override public void onCheckedChanged(CompoundButton b, boolean checked) { save(); }
+        });
+        col.addView(modeAdd);
+
+        TextView note = new TextView(this);
+        note.setText("Perubahan terbaca game dalam sekitar 2 detik. Jika stage di file belum 3, "
+                + "tutup dan buka game sekali. Batas slider diubah lewat baris max_* di kuro_companion.cfg "
+                + "(contoh max_unity_speed=20.0, lalu buka ulang aplikasi ini). "
+                + "Overlay Poin Event butuh izin 'Tampil di atas aplikasi lain' dan hanya mencatat quest event solo yang clear. "
+                + "Jangan menyalakan fitur yang sama (God Mode, Unity Speed, Damage Rate) di sini sekaligus di menu Kuro. "
                 + "Hindari mode online (risiko banned).");
-        note.setLineSpacing(0, 1.2f);
-        note.setPadding(0, dp(16), 0, 0);
+        note.setPadding(0, dp(20), 0, 0);
         col.addView(note);
 
         setContentView(scroll);
@@ -247,6 +180,15 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         loadAsync();   // also picks up edits made to max_* in the file while the app was in the background
+    }
+
+    private void setOverlayRunning(boolean on) {
+        Intent i = new Intent(this, OverlayService.class);
+        if (on) {
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(i); else startService(i);
+        } else {
+            stopService(i);
+        }
     }
 
     private int dp(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }
@@ -292,10 +234,11 @@ public class MainActivity extends Activity {
                 runOnUiThread(new Runnable() {
                     @Override public void run() {
                         if (!root) {
-                            status.setText("Root tidak tersedia. Beri izin root di Magisk.");
+                            status.setText("Root ditolak atau tidak tersedia. Beri izin root untuk aplikasi ini di Magisk.");
                         } else {
-                            status.setText("Root aktif");
+                            status.setText("Root OK. Mengubah: " + CFG_EXT);
                             applyFile(cfg.out);
+                            if (eventPoints.sw.isChecked() && Settings.canDrawOverlays(MainActivity.this)) setOverlayRunning(true);
                         }
                         loading = false;
                     }
@@ -349,7 +292,8 @@ public class MainActivity extends Activity {
         damageRate.setFromFile(num(m.get("damage_rate")));
         skillNoCd.sw.setChecked(flag(m.get("skill_no_cd")));
         godMode.sw.setChecked(flag(m.get("god_mode")));
-        autoNext.sw.setChecked(flag(m.get("auto_next_quest")));
+        skipStory.sw.setChecked(flag(m.get("skip_story")));
+        eventPoints.sw.setChecked(flag(m.get("event_points")));
         String mode = m.get("attack_speed_mode");
         if (mode != null) modeAdd.setChecked(!"mul".equals(mode));
     }
@@ -368,7 +312,8 @@ public class MainActivity extends Activity {
         sb.append("damage_rate_mode=add\n");
         sb.append("skill_no_cd=").append(skillNoCd.sw.isChecked() ? "1" : "0").append('\n');
         sb.append("god_mode=").append(godMode.sw.isChecked() ? "1" : "0").append('\n');
-        sb.append("auto_next_quest=").append(autoNext.sw.isChecked() ? "1" : "0").append('\n');
+        sb.append("event_points=").append(eventPoints.sw.isChecked() ? "1" : "0").append('\n');
+        sb.append("skip_story=").append(skipStory.sw.isChecked() ? "1" : "0").append('\n');
         sb.append(String.format(Locale.US, "max_attack_speed=%.1f\n", attackSpeed.max));
         sb.append(String.format(Locale.US, "max_move_speed=%.1f\n", moveSpeed.max));
         sb.append(String.format(Locale.US, "max_attack_range=%.1f\n", attackRange.max));
@@ -389,8 +334,8 @@ public class MainActivity extends Activity {
                 su("[ -f '" + CFG_INT + "' ] && cat > '" + CFG_INT + "'", content);
                 runOnUiThread(new Runnable() {
                     @Override public void run() {
-                        status.setText(w.code == 0 ? "Tersimpan"
-                                                   : "Gagal menyimpan (kode " + w.code + ")");
+                        status.setText(w.code == 0 ? "Tersimpan. Game membacanya dalam ~2 detik."
+                                                   : "Gagal menulis file (kode " + w.code + ").");
                     }
                 });
             }

@@ -13,22 +13,6 @@ android {
         versionCode 1
         versionName "1.0"
     }
-    signingConfigs {
-        release {
-            if (System.getenv("KS_FILE")) {
-                storeFile file(System.getenv("KS_FILE"))
-                storePassword System.getenv("KS_PASS")
-                keyAlias System.getenv("KS_ALIAS")
-                keyPassword System.getenv("KS_PASS")
-            }
-        }
-    }
-    buildTypes {
-        release {
-            minifyEnabled false
-            signingConfig signingConfigs.release
-        }
-    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
