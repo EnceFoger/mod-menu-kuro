@@ -15,18 +15,26 @@ jobs:
           gradle-version: '8.9'
       - name: Arrange project folders
         run: |
+          R=app/src/main/res
           mkdir -p app/src/main/java/com/kuro/companionctl
+          mkdir -p $R/mipmap-mdpi $R/mipmap-hdpi $R/mipmap-xhdpi $R/mipmap-xxhdpi $R/mipmap-xxxhdpi $R/mipmap-anydpi-v26 $R/drawable-nodpi $R/values
           cp app_build.gradle app/build.gradle
+          cp release.jks app/release.jks
           cp AndroidManifest.xml app/src/main/AndroidManifest.xml
           cp *.java app/src/main/java/com/kuro/companionctl/
+          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do cp ic_launcher_$d.png $R/mipmap-$d/ic_launcher.png; done
+          cp ic_launcher_adaptive.xml $R/mipmap-anydpi-v26/ic_launcher.xml
+          cp ic_launcher_foreground.png $R/drawable-nodpi/ic_launcher_foreground.png
+          cp ic_launcher_background.xml $R/values/ic_launcher_background.xml
       - name: Android SDK
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0"
-      - name: Build
-        run: gradle assembleDebug --no-daemon
+      - name: Build release APK
+        run: gradle assembleRelease --no-daemon
       - uses: actions/upload-artifact@v4
         with:
-          name: kuro_control_apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: kuro_control_release_apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+          
