@@ -13,6 +13,15 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Write license config
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Add the repository secrets SUPABASE_URL and SUPABASE_ANON_KEY (Settings > Secrets and variables > Actions)"; exit 1
+          fi
+          printf 'package com.kuro.companionctl;\n\nfinal class LicenseConfig {\n    static final String URL = "%s";\n    static final String ANON_KEY = "%s";\n    private LicenseConfig() { }\n}\n' "${SUPABASE_URL%/}" "$SUPABASE_ANON_KEY" > LicenseConfig.java
       - name: Arrange project folders
         run: |
           R=app/src/main/res

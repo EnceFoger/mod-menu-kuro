@@ -104,7 +104,12 @@ public class MainActivity extends Activity {
         setCardsActive(false);
         playEntrance();
 
-        if (prefs.getBoolean("root_on", true)) requestRoot(true);   // rooted devices: switch on by default
+        // License gate first: nothing touches root or the game's files until the key is accepted.
+        LicenseGate.run(this, new LicenseGate.Callback() {
+            @Override public void onLicensed() {
+                if (prefs.getBoolean("root_on", true)) requestRoot(true);   // rooted devices: switch on by default
+            }
+        });
     }
 
     private int dp(float v) { return Ui.dp(this, v); }
@@ -394,6 +399,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        LicenseGate.refresh(this);   // renews the licence token in the background when it is close to expiring
         if (rootOn) loadAsync();   // picks up edits made to the file while the app was in the background
     }
 
